@@ -1,230 +1,371 @@
-# University Workshop Starter
-This repository is a **starting point** for an end-to-end analytics engineering project in dbt as experienced in a dbt Labs University Workshop. This repo uses the legendary [Jaffle Shop](https://github.com/dbt-labs/jaffle-shop) project for its curated sample data, but with a much smaller scope: **only seeds** are included so you can get started easily. Your job in the workshop will be to design and build your own staging layer (guided) and then the intermediate and mart layer (independently) to ultimately answer specified analytics/business question(s).
+# Customer Segmentation and Product Preference Analysis
 
-## What you’re building
-By the end of the workshop, you should have:
-- A specific, relevant analytics question (or small set) stated up front; perhaps opting for 1 primary, 2–4 supporting questions
-- A dbt project that runs end-to-end on **BigQuery**
-- At least one **`dim_*`** and/or **`fct_*`** model that clearly answers the stated question(s)
-- 2–4 tests (at minimum `not_null` and `unique` on primary keys, plus one business-logic test)
-- Descriptions for key models and columns so someone new can easily follow the work
-- A short write-up in the README, or elsewhere in the repo, with at least one insight stated and supported by data evidence and at least one realistic next step that follows from the insight(s)
+## Project Overview
 
----
+This dbt project analyzes customer purchasing behavior using customer, order, item, and product data. The main goal is to segment customers based on **purchase frequency** and **total product value**, then analyze which product types are preferred by each customer segment.
 
-## Prerequisites
-- BigQuery project + dataset you can write to
-- dbt (Fusion + VS Code extension) installed and working
-- Git installed and a GitHub account
-- A working BigQuery connection configured in `profiles.yml`
+The main business question is:
 
-If needed, detailed setup instructions can be found [here](https://docs.google.com/document/d/1_9MhrFGBjv0MShmynGwTzi2aHLPFDkD7ZTcCxj-iyag/edit?usp=sharing)
+> **How do product preferences differ across customer segments based on purchase frequency and total product value?**
+
+This analysis helps the business understand customer behavior, identify valuable customer groups, and design targeted marketing strategies.
 
 ---
 
-## Quickstart
+## Business Motivation
 
-### 1) Fork this repo
-Follow [these instructions](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#forking-a-repository) to create your own fork/version of this repo.
+Customers have different purchasing behaviors. Some customers order frequently and generate high value, while others order less often but may still purchase expensive products. Treating every customer the same can make marketing less effective.
 
-Optionally, [sync your forked repo](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#configuring-git-to-sync-your-fork-with-the-upstream-repository) to the main upstream starter repo so you can pull any changes to it later.
+By creating customer segments, the business can answer questions such as:
 
-### 2) Clone that repo locally using VS Code
-Follow [these instructions](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/fork-a-repo#cloning-your-forked-repository) to clone your forked repo for local development in VS Code.
-```
-git clone <YOUR_REPO_URL>
-cd <YOUR_REPO_NAME>
-```
-
-### 3) Confirm your dbt profile name matches `dbt_project.yml` (important)
-This project’s `dbt_project.yml` includes a `profile:` value (for example, `default`). **That value must match the profile name you have configured for BigQuery dev credentials in your `profiles.yml`.**
-
-- If your `dbt_project.yml` says `profile: default`, then your `profiles.yml` must have a top-level profile named `default:`. In this starter repo, the `dbt_project.yml` says `profile: university_workshop`, so make sure you have a top-level profile named `university_workshop` in your `profiles.yml` file.
-
-Typical locations:
-- In the hidden `.dbt` folder: `~/.dbt/profiles.yml`
-- If you are using a repo-local profile (optional): `./profiles.yml`, make sure it is gitignored, otherwise your credentials will be made public!
-
-If the names do not match, dbt will fail with a “profile not found” style error.
-
-### 4) Seed the curated source data (raw layer)
-This starter uses dbt **seeds** as the “raw” tables for the project.
-
-Run: `dbt seed`
+- Which customers are high-value and frequent buyers?
+- Which customers spend a lot but order less often?
+- Which customer groups should receive loyalty rewards?
+- Which customer groups should receive promotions or re-engagement campaigns?
+- Which product types are preferred by each customer segment?
 
 ---
 
-## Project structure
-You have:
-- `seeds/`  
-  Curated CSVs that dbt loads into your warehouse (commonly into a `raw` schema or dataset).
+## Data Sources
 
-You do **not** have staging or marts models in this repo. You will create the staging layer in the guided portion of the workshop and the marts layer based on the question(s) you have chosen to answer.
+The project uses the following raw source tables:
 
-### Recommended build-out
+| Source Table | Description |
+|---|---|
+| `raw_customers` | Customer information |
+| `raw_orders` | Order-level transaction data |
+| `raw_items` | Item-level products purchased in each order |
+| `raw_products` | Product information, including product type and price |
+| `raw_stores` | Store information |
+| `raw_supplies` | Supply information |
 
-#### Staging (`models/staging/`)
+---
 
-Create `stg_*` models that:
+## Project Structure
 
-- rename fields consistently (`customer` → `customer_id`, `type` → `product_type`, etc.)
-- cast types (BigQuery: `CAST(...)` / `SAFE_CAST(...)`)
-- standardize timestamps/dates
+The dbt project follows a layered structure:
 
-Example BigQuery casts:
-
-```
-SAFE_CAST(price AS NUMERIC) AS price,
-TIMESTAMP(ordered_at) AS ordered_at
+```text
+sources
+  ↓
+staging models
+  ↓
+marts models
 ```
 
-To guide you through the staging layer build, you can follow [these instructions](https://docs.google.com/document/d/1Gy0f35WMmFM0Sh8kWpfQ1nSeFnmhWrFatISbTA3B534/edit?usp=sharing).
+### Staging Layer
 
-#### Intermediate (`models/intermediate/`)
+The staging layer cleans and standardizes raw data. These models rename columns, cast data types, and prepare the data for business analysis.
 
-Reusable joins / business logic:
+Examples:
 
-- `int_sales_enriched`: items + orders + products + stores (+ supplies)
-- `int_customer_orders`: customer order history + sequencing
-- `int_item_finance`: item-level revenue/cost/margin fields
+- `stg_customers`
+- `stg_orders`
+- `stg_items`
+- `stg_products`
+- `stg_stores`
+- `stg_supplies`
 
-#### Marts (`models/marts/`)
+### Marts Layer
 
-Final models that answer your question(s):
+The marts layer contains the final business models used for analysis.
 
-- `dim_*` for entities (customer, product, store, date)
-- `fct_*` for measurable events (order, sale line, daily rollups)
+Main marts models:
+
+- `dim_customer_segments`
+- `fct_segment_product_preferences`
 
 ---
 
-## BigQuery notes (common gotchas)
-- Make sure your BigQuery credential (typically the locally saved JSON file) has permission to:
-  - create tables/views
-  - create and write to datasets
-  It is easiest to just give the service account `Owner` permissions
-- Be explicit about your target dataset (schema) in `profiles.yml` so you can easily find your outputs.
-- If you switch GCP projects or datasets, rerun `dbt debug` to confirm everything is wired correctly.
+## Model: `dim_customer_segments`
 
-Useful commands:
+### Purpose
+
+`dim_customer_segments` is a dimension model that creates one row per customer and classifies each customer into a segment based on:
+
+1. Purchase frequency
+2. Total product value
+
+This model helps identify different types of customers based on how often they order and how much value they generate.
+
+### Grain
+
+One row per customer.
+
+```text
+customer_id
 ```
-dbt debug
-dbt parse
-dbt compile
-dbt ls
+
+### Key Metrics
+
+| Column | Description |
+|---|---|
+| `customer_id` | Unique customer identifier |
+| `total_orders` | Total number of distinct orders placed by the customer |
+| `total_products_purchased` | Total number of products purchased by the customer |
+| `total_product_value` | Total value of products purchased by the customer |
+| `avg_product_price` | Average price of products purchased by the customer |
+| `customer_segment` | Customer segment classification |
+
+### Customer Segments
+
+| Segment | Meaning |
+|---|---|
+| `High-value frequent customer` | Customers who order often and generate high total product value |
+| `High-value occasional customer` | Customers who generate high value but order less frequently |
+| `Low-value frequent customer` | Customers who order often but generate lower total product value |
+| `Medium-value regular customer` | Customers with medium value and regular purchase behavior |
+| `Low-value occasional customer` | Customers who order less frequently and generate lower total product value |
+
+### Segmentation Method
+
+The model uses `ntile(3)` to divide customers into low, medium, and high groups based on actual data distribution.
+
+```sql
+ntile(3) over (
+    order by total_product_value
+) as value_group
+```
+
+```sql
+ntile(3) over (
+    order by total_orders
+) as frequency_group
+```
+
+This method is useful because it avoids manually choosing fixed thresholds. Since product prices and customer spending levels can vary, percentile-based grouping creates more meaningful segments.
+
+### Example Logic
+
+```sql
+case
+    when value_group = 3 and frequency_group = 3
+        then 'High-value frequent customer'
+
+    when value_group = 3 and frequency_group < 3
+        then 'High-value occasional customer'
+
+    when value_group < 3 and frequency_group = 3
+        then 'Low-value frequent customer'
+
+    when value_group = 2 and frequency_group = 2
+        then 'Medium-value regular customer'
+
+    else 'Low-value occasional customer'
+end as customer_segment
 ```
 
 ---
 
-## Suggested workflow (ADLC)
-1. **Plan**
-   - Write questions, entities, grain, and expected outputs
-   - You can place these in a top-level `plan.md` file in your project
-2. **Develop**
-   - Add staging, marts (and, optionally, intermediate) models with clear naming and layering
-3. **Test**
-   - Add tests early, document columns and models whilst you're in the YAML files
-4. **Deploy**
-   - Ensure everything builds end-to-end locally and push changes to `main`
-5. **Operate (optional for workshop)**
-   - Schedule your project to run via a job (optionally, schedule it) on dbt Platform
-6. **Observe**
-   - Check lineage and data quality signals via test results
-7. **Discover**
-   - Add any additional useful descriptions and documentation to the project, models, and columns.
-8. **Analyze**
-   - Query your marts (or build an output artifact) and write 1–2 insights plus next steps
+## Model: `fct_segment_product_preferences`
+
+### Purpose
+
+`fct_segment_product_preferences` is a fact model that measures product preferences by customer segment.
+
+It helps answer:
+
+> **Which product types are most popular and most valuable for each customer segment?**
+
+### Grain
+
+One row per customer segment and product type.
+
+```text
+customer_segment + product_type
+```
+
+### Key Metrics
+
+| Column | Description |
+|---|---|
+| `customer_segment` | Customer group from `dim_customer_segments` |
+| `product_type` | Product category purchased by the segment |
+| `number_of_customers` | Number of distinct customers in the segment who purchased the product type |
+| `total_orders` | Total number of orders for the segment and product type |
+| `total_products_purchased` | Total number of products purchased |
+| `total_product_value` | Total product value generated |
+| `avg_product_price` | Average price of products purchased |
+| `avg_order_value` | Average product value per order |
+| `avg_products_per_order` | Average number of products purchased per order |
 
 ---
 
-## Suggested analytics questions (if you're struggling to create your own)
+## Key Business Insights
 
-Pick **1 primary question** and **2–4 supporting questions**. Then build:
+### 1. High-value frequent customers are the strongest retention group
 
-- `models/staging/` → clean + standardize seeded raw tables
-- `models/intermediate/` → reusable joins + business logic (`int_*`)
-- `models/marts/` → business-facing outputs (`dim_*`, `fct_*`) that answer the question(s)
+High-value frequent customers order often and generate strong total product value. They are likely the most loyal and valuable customers.
 
-**Seeded raw tables:**
+For this group, beverages generated a large amount of product value, and jaffles also contributed meaningful value. This shows that high-value frequent customers are important across multiple product types.
 
-- `raw_customers(id, name)`
-- `raw_orders(id, customer, ordered_at, store_id, subtotal, tax_paid, order_total)`
-- `raw_items(id, order_id, sku)`
-- `raw_products(sku, name, type, price, description)`
-- `raw_stores(id, name, opened_at, tax_rate)`
-- `raw_supplies(id, name, cost, perishable, sku)`
+**Business recommendation:**
 
-### Join map
+The business should focus on retaining this group through:
 
-- `raw_orders.customer` → `raw_customers.id`
-- `raw_orders.store_id` → `raw_stores.id`
-- `raw_items.order_id` → `raw_orders.id`
-- `raw_items.sku` → `raw_products.sku`
-- `raw_supplies.sku` → `raw_products.sku` (and to `raw_items.sku`)
-
-## Option A: Profitability — Which products and stores are most profitable?
-
-**Primary question:** Which products (and stores) drive the most profit?
-
-**Supporting questions:**
-
-- Which **product types** have the highest **gross margin** and **margin %**?
-- Which **stores** drive the most **profit** vs the most **revenue** (not always the same)?
-- How much profit comes from **perishable** vs **non-perishable** products?
-
-**Suggested marts:**
-
-- `dim_product` (SKU-level attributes, including cost/perishable)
-- `dim_store`
-- `fct_sales_line` (one row per sold item) **or** `fct_product_profit_daily` (aggregated)
-
-**Implementation hint:** `raw_items` is line-level but doesn’t include quantity. A simple, consistent approach is to treat **each row in `raw_items` as 1 unit sold** and use `raw_products.price` as revenue per unit and `raw_supplies.cost` as cost per unit.
-
-## Option B: Product performance — What are customers buying, and how does mix vary by store over time?
-
-**Primary question:** What products sell best, and how does the product mix differ by store and over time?
-
-**Supporting questions:**
-
-- What are the **top SKUs** and **top product types** by **units sold** and **revenue**?
-- Do stores have distinct “bestsellers” (store-specific product mix)?
-- How does product mix change over time (`ordered_at`)?
-
-**Suggested marts:**
-
-- `dim_product`, `dim_store` (and optionally `dim_date`)
-- `fct_product_sales_daily` (grain: `order_date + sku (+ store_id)`)
-
-## Option C: Customers — Who are repeat customers and what do they buy?
-
-**Primary question:** Who are our repeat customers, and what patterns predict repeat purchasing?
-
-**Supporting questions:**
-
-- What % of customers are **one-time vs repeat** purchasers?
-- What is **time-to-second-order** for repeat customers?
-- Do repeat customers prefer certain **product types** (and do they have higher order totals)?
-
-**Suggested marts:**
-
-- `dim_customer`
-- `fct_orders` (order grain, enriched with customer + store)
-- `dim_customer_summary` (customer grain: order_count, repeat_flag, days_to_second_order, total_spend)
+- VIP loyalty rewards
+- Exclusive offers
+- Early access to new products
+- Personalized product recommendations
 
 ---
 
-## Workshop requirements checklist (use this to self-review)
-- [ ] Defined primary + supporting analytics questions
-- [ ] Built at least one `dim_*` and/or `fct_*` model
-- [ ] Added schema tests for keys (unique, not_null)
-- [ ] Added at least one “business logic” test (accepted values, or custom test)
-- [ ] Added descriptions to key models and columns
-- [ ] Ran `dbt build` successfully with a clean output
-- [ ] README (or a file elsewhere in the repo) includes: At least one insight stated and supported by data evidence (numbers, comparison, trend, segment, etc.) and at least one realistic next step that follows from the insight(s)
+### 2. High-value occasional customers have strong spending potential
+
+High-value occasional customers do not order as frequently, but they generate high product value when they do purchase. This means they may buy expensive products or place larger orders occasionally.
+
+In the product preference result, high-value occasional customers generated especially strong value from jaffles and beverages.
+
+**Business recommendation:**
+
+The business should encourage this group to purchase more often through:
+
+- Re-engagement emails
+- Limited-time promotions
+- Personalized product reminders
+- Free shipping or discount thresholds
 
 ---
 
-## Workshop deliverables
-At the end of the workshop you will:
-- Have a link to your GitHub repo
-- Present what you have done covering the items in the `Workshop requirements checklist` above
-- Bonus: You may choose to also produce a dashboard (can be screenshots), SQL queries in BigQuery, or a Python notebook that tells the story.
+### 3. Low-value frequent customers are good upsell targets
+
+Low-value frequent customers order often but generate lower value compared with high-value customers. This means they are engaged, but they may be buying lower-priced products.
+
+This segment is a strong opportunity for upselling because they already have repeat purchase behavior.
+
+**Business recommendation:**
+
+The business should increase basket size through:
+
+- Bundle deals
+- Add-on offers at checkout
+- Cross-sell recommendations
+- Premium product suggestions
+
+---
+
+### 4. Low-value occasional customers need activation strategies
+
+Low-value occasional customers purchase less often and generate lower product value. They may be new customers, one-time buyers, or customers who are not strongly engaged yet.
+
+**Business recommendation:**
+
+The business should focus on basic activation strategies such as:
+
+- Welcome-back coupons
+- First-time repeat purchase discounts
+- Simple product bundles
+- Low-cost product recommendations
+
+---
+
+### 5. Product strategy should differ by segment
+
+The product preference model shows that beverages are purchased across all customer segments, while jaffles generally have higher average product prices and higher average order values.
+
+This suggests that beverages may be useful for driving repeat purchases, while jaffles may be useful for increasing order value.
+
+**Business recommendation:**
+
+- Use beverages to encourage repeat purchases.
+- Use jaffles to increase average order value.
+- Promote product bundles that combine beverages with higher-value products.
+
+---
+
+## Business Recommendations by Segment
+
+| Customer Segment | Business Goal | Suggested Strategy |
+|---|---|---|
+| High-value frequent customer | Retain loyalty | VIP rewards, loyalty program, personalized offers |
+| High-value occasional customer | Increase purchase frequency | Re-engagement campaigns, limited-time offers |
+| Low-value frequent customer | Increase order value | Bundles, upselling, premium recommendations |
+| Medium-value regular customer | Move to high-value | Cross-sell products, targeted promotions |
+| Low-value occasional customer | Increase engagement | Discounts, beginner offers, awareness campaigns |
+
+---
+
+## Final Conclusion
+
+This project shows that customer segmentation can help the business better understand customer behavior and product preferences. By combining purchase frequency and total product value, the business can identify high-value customers, occasional high spenders, frequent low-value customers, and low-engagement customers.
+
+The fact model connects customer segments to product types, helping the business understand which products are most important to each customer group.
+
+The main business takeaway is:
+
+> The business should use different strategies for different customer segments. High-value frequent customers should be retained, high-value occasional customers should be encouraged to purchase more often, low-value frequent customers should be upsold, and low-value occasional customers should be activated through simple promotions.
+
+---
+
+## How to Run the Project
+
+Run all models:
+
+```bash
+dbt run
+```
+
+Run the customer segmentation model:
+
+```bash
+dbt run --select +dim_customer_segments
+```
+
+Run the product preference fact model:
+
+```bash
+dbt run --select +fct_segment_product_preferences
+```
+
+Run all tests:
+
+```bash
+dbt test
+```
+
+Run only marts tests:
+
+```bash
+dbt test --select marts
+```
+
+---
+
+## Project Readability Notes
+
+This project is organized with clear naming conventions:
+
+| Prefix | Meaning |
+|---|---|
+| `stg_` | Staging model that cleans raw data |
+| `dim_` | Dimension model that describes a business entity |
+| `fct_` | Fact model that measures business activity |
+
+The final structure is easy to understand:
+
+```text
+staging models
+  ↓
+dim_customer_segments
+  ↓
+fct_segment_product_preferences
+```
+
+This structure improves readability because each model has a clear purpose:
+
+- Staging models clean the raw data.
+- The dimension model classifies customers.
+- The fact model measures product preferences by customer segment.
+
+---
+
+## Future Improvements
+
+This analysis can be extended by adding:
+
+- Product profitability using supply costs
+- Store-level customer segment analysis
+- Monthly customer segment trends
+- Customer retention analysis
+- Average days between orders
+- Product bundle recommendation analysis

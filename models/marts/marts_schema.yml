@@ -1,0 +1,49 @@
+
+models:
+  - name: dim_customer_segments
+    description: >
+      Customer segmentation model that classifies customers based on purchase frequency
+      and total product value. This model helps identify high-value frequent customers,
+      high-value occasional customers, low-value frequent customers, medium-value regular
+      customers, and low-value occasional customers.
+
+    columns:
+      - name: customer_id
+        description: "Unique identifier for each customer."
+        data_tests:
+          - not_null
+          - unique
+
+      - name: total_orders
+        description: "Total number of distinct orders placed by the customer."
+        data_tests:
+          - not_null
+
+      - name: total_products_purchased
+        description: "Total number of products purchased by the customer across all orders."
+        data_tests:
+          - not_null
+
+      - name: total_product_value
+        description: "Total estimated value of products purchased by the customer."
+        data_tests:
+          - not_null
+
+      - name: avg_product_price
+        description: "Average price of products purchased by the customer."
+
+      - name: customer_segment
+        description: >
+          Customer segment based on total product value and purchase frequency.
+          Possible values include high-value frequent customer, high-value occasional customer,
+          low-value frequent customer, medium-value regular customer, and low-value occasional customer.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - High-value frequent customer
+                  - High-value occasional customer
+                  - Low-value frequent customer
+                  - Medium-value regular customer
+                  - Low-value occasional customer

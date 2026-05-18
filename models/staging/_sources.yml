@@ -1,0 +1,46 @@
+sources:
+  - name: jaffle_shop
+    database: jaffleshop-496117
+    schema: starter_worksohp_raw
+
+    tables:
+      - name: raw_customers
+        columns:
+          - name: id
+            data_tests:
+              - unique
+              - not_null
+
+      - name: raw_items
+        columns:
+          - name: id
+            data_tests:
+              - unique
+              - not_null
+
+      - name: raw_orders
+        columns:
+          - name: id
+            data_tests:
+              - unique
+              - not_null
+
+      - name: raw_products
+        columns:
+          - name: sku
+            data_tests:
+              - unique
+              - not_null
+
+      - name: raw_stores
+        columns:
+          - name: id
+            data_tests:
+              - unique
+              - not_null
+
+      - name: raw_supplies
+        columns:
+          - name: id
+            data_tests:
+              - not_null
